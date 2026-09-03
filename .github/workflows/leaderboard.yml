@@ -1,0 +1,127 @@
+name: LMAO Leaderboard
+
+on:
+  workflow_dispatch:
+    inputs:
+      lichess_user:
+        description: "Lichess Benutzername (Turnier-Ersteller)"
+        default: "DarkOnCrack"
+        required: false
+      num_workers:
+        description: "Anzahl paralleler Worker"
+        default: "10"
+        required: false
+      request_delay:
+        description: "Sekunden Pause zwischen einzelnen API-Requests je Worker"
+        default: "1.0"
+        required: false
+  schedule:
+    # jeden Montag 03:00 UTC automatisch neu berechnen
+    - cron: "0 3 * * 1"
+
+permissions:
+  contents: write
+
+env:
+  LICHESS_USER: ${{ inputs.lichess_user || 'DarkOnCrack' }}
+  NUM_WORKERS: ${{ inputs.num_workers || '10' }}
+  REQUEST_DELAY: ${{ inputs.request_delay || '1.0' }}
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install requests
+
+      - name: LMAO Day/Night Turniere finden
+        env:
+          LICHESS_USER: ${{ env.LICHESS_USER }}
+          LICHESS_TOKEN: ${{ secrets.LICHESS_TOKEN }}
+        run: python scripts/discover.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tournaments
+          path: tournaments.json
+
+      - id: set-matrix
+        run: |
+          python3 -c "import json,os;print('matrix=' + json.dumps(list(range(int(os.environ['NUM_WORKERS'])))))" >> "$GITHUB_OUTPUT"
+
+  fetch:
+    needs: discover
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        chunk: ${{ fromJson(needs.discover.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install requests
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: tournaments
+
+      - name: Turnierergebnisse abrufen (Chunk ${{ matrix.chunk }})
+        env:
+          LICHESS_TOKEN: ${{ secrets.LICHESS_TOKEN }}
+          CHUNK_INDEX: ${{ matrix.chunk }}
+          REQUEST_DELAY: ${{ env.REQUEST_DELAY }}
+        run: python scripts/fetch_worker.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: partial-${{ matrix.chunk }}
+          path: partial_${{ matrix.chunk }}.json
+
+  aggregate:
+    needs: fetch
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: partial-*
+          path: artifacts
+          merge-multiple: true
+
+      - name: Gesamtrangliste erstellen
+        run: python scripts/aggregate.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: leaderboard
+          path: |
+            LEADERBOARD.md
+            leaderboard_players.json
+            leaderboard_teams.json
+            errors.json
+
+      - name: Ergebnisse ins Repo committen
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          mkdir -p results
+          cp LEADERBOARD.md leaderboard_players.json leaderboard_teams.json errors.json results/
+          git add results/
+          git diff --staged --quiet || git commit -m "Rangliste aktualisiert: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push
