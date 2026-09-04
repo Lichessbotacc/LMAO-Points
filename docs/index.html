@@ -142,20 +142,43 @@
     color:var(--ink-soft);
   }
 
+  .viewport{
+    height:560px;
+    overflow-y:auto;
+    position:relative;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  .spacer{
+    position:relative;
+    width:100%;
+  }
+
+  .list{
+    position:relative;
+    width:100%;
+  }
+
   .row{
+    position:absolute;
+    left:0;
+    right:0;
     display:grid;
     grid-template-columns:44px 1fr auto;
     align-items:center;
     gap:14px;
-    padding:12px 20px;
+    padding:0 20px;
     border-bottom:1px solid var(--line-light);
+    cursor:pointer;
   }
 
-  .row:last-child{ border-bottom:none; }
+  .row:hover{ background:rgba(199,154,58,.08); }
 
-  .row:nth-child(even){ background:rgba(36,49,42,.045); }
+  .row.even{ background:rgba(36,49,42,.045); }
+  .row.even:hover{ background:rgba(199,154,58,.1); }
 
   .row.top{ background:var(--gold-soft); }
+  .row.top:hover{ background:rgba(199,154,58,.26); }
 
   .rank{
     font-family:'IBM Plex Mono',monospace;
@@ -181,6 +204,105 @@
     white-space:nowrap;
   }
 
+  .detail{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(130px, 1fr));
+    gap:14px 16px;
+  }
+
+  .overlay{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(15,20,16,.6);
+    align-items:flex-start;
+    justify-content:center;
+    padding:10vh 20px;
+    z-index:50;
+  }
+
+  .overlay.open{ display:flex; }
+
+  .overlay-card{
+    position:relative;
+    background:var(--paper);
+    color:var(--ink);
+    border-radius:12px;
+    padding:26px 24px 24px;
+    max-width:480px;
+    width:100%;
+    max-height:70vh;
+    overflow-y:auto;
+  }
+
+  .overlay-close{
+    position:absolute;
+    top:14px;
+    right:14px;
+    background:transparent;
+    border:none;
+    font-size:1.1rem;
+    color:var(--ink-soft);
+    cursor:pointer;
+    line-height:1;
+    padding:4px;
+  }
+
+  .overlay-head{
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+    margin-bottom:2px;
+    padding-right:24px;
+  }
+
+  .overlay-rank{
+    font-family:'IBM Plex Mono',monospace;
+    color:var(--gold);
+    font-weight:600;
+  }
+
+  .overlay-name{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-size:1.3rem;
+  }
+
+  .overlay-points{
+    font-family:'IBM Plex Mono',monospace;
+    color:var(--ink-soft);
+    font-size:.9rem;
+    margin-bottom:18px;
+  }
+
+  .stat{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+
+  .stat .stat-label{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:.68rem;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--ink-soft);
+  }
+
+  .stat .stat-value{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:.95rem;
+    font-weight:600;
+    color:var(--ink);
+  }
+
+  .stat .stat-value.pos{ color:#3E7A4C; }
+  .stat .stat-value.neg{ color:#B5473A; }
+
+  @media (max-width:480px){
+    .detail{ grid-template-columns:repeat(auto-fill, minmax(110px, 1fr)); }
+  }
+
   .empty{
     padding:40px 20px;
     text-align:center;
@@ -202,8 +324,9 @@
   footer a{ color:#B9C2B7; }
 
   @media (max-width:480px){
-    .row{ grid-template-columns:34px 1fr auto; gap:10px; padding:11px 16px; }
+    .row{ grid-template-columns:34px 1fr auto; gap:10px; padding:0 16px; }
     .panel-head{ padding:14px 16px; }
+    .viewport{ height:70vh; }
   }
 </style>
 </head>
@@ -211,7 +334,7 @@
 <div class="wrap">
   <header>
     <h1>LMAO Standings</h1>
-    <p class="sub">All LMAO Day and LMAO Night tournaments combined, points summed across every edition.</p>
+    <p class="sub">All LMAO Day and LMAO Night tournaments combined, points summed across every edition. Klicke auf eine Zeile für mehr Stats.</p>
     <div class="controls">
       <div class="switch">
         <button id="btn-teams" class="active">Teams</button>
@@ -228,13 +351,29 @@
       <span class="label" id="panel-label">Team Standings</span>
       <span class="count" id="panel-count"></span>
     </div>
-    <div id="list"></div>
+    <div id="viewport" class="viewport">
+      <div id="spacer" class="spacer">
+        <div id="list" class="list"></div>
+      </div>
+    </div>
   </div>
 
   <footer>
     <span id="updated">Loading...</span>
     <span id="tournaments"></span>
   </footer>
+</div>
+
+<div id="overlay" class="overlay">
+  <div id="overlay-card" class="overlay-card">
+    <button id="overlay-close" class="overlay-close">✕</button>
+    <div class="overlay-head">
+      <span class="overlay-rank" id="overlay-rank"></span>
+      <span class="overlay-name" id="overlay-name"></span>
+    </div>
+    <div class="overlay-points" id="overlay-points"></div>
+    <div id="overlay-stats" class="detail"></div>
+  </div>
 </div>
 
 <script>
@@ -244,7 +383,8 @@
     meta: 'data/meta.json',
   };
 
-  const PAGE_SIZE = 100;
+  const ROW_HEIGHT = 49;   // px, muss zur CSS-Zeilenhoehe passen
+  const OVERSCAN = 8;      // zusaetzliche Zeilen ausserhalb des Viewports gerendert
 
   const state = {
     view: 'teams',
@@ -255,18 +395,47 @@
     query: '',
     loadingTeams: false,
     loadingPlayers: false,
-    shown: PAGE_SIZE,
+    filtered: [],       // aktuell gefilterte+sortierte Liste fuer die aktive View
   };
+
+  // Zusatz-Statistiken, die aggregate.py aus den Turnier-Einzelergebnissen
+  // berechnet. Alle Felder sind optional — fehlt eines (z.B. weil ein
+  // Team-Battle keine Ranks liefert), wird die Kachel einfach weggelassen.
+  const STAT_DEFS = [
+    { key: 'tournaments_played',      label: 'Turniere',         fmt: v => `${v}` },
+    { key: 'best_tournament',         label: 'Bestes Turnier',   fmt: v => `${v}` },
+    { key: 'best_tournament_score',   label: 'Score dort',       fmt: v => `${v}` },
+    { key: 'best_finish',             label: 'Beste Platzierung',fmt: v => `#${v}` },
+    { key: 'worst_finish',            label: 'Schlechteste Platz.', fmt: v => `#${v}` },
+    { key: 'avg_finish',              label: 'Ø Platzierung',    fmt: v => `#${v}` },
+    { key: 'avg_points',              label: 'Ø Punkte',         fmt: v => `${v}` },
+    { key: 'highest_points',          label: 'Höchster Score',   fmt: v => `${v}` },
+    { key: 'podiums',                 label: 'Podestplätze',     fmt: v => `${v}` },
+    { key: 'first_places',            label: 'Siege',            fmt: v => `${v}` },
+    { key: 'top3_rate',               label: 'Top-3-Quote',      fmt: v => `${(v * 100).toFixed(1)}%` },
+    { key: 'active_since',            label: 'Aktiv seit',       fmt: v => fmtDate(v) || `${v}` },
+    { key: 'last_played',             label: 'Zuletzt gespielt', fmt: v => fmtDate(v) || `${v}` },
+    { key: 'team_name',               label: 'Team',             fmt: v => `${v}`, playersOnly:true },
+  ];
 
   const el = {
     btnTeams: document.getElementById('btn-teams'),
     btnPlayers: document.getElementById('btn-players'),
     search: document.getElementById('search'),
+    viewport: document.getElementById('viewport'),
+    spacer: document.getElementById('spacer'),
     list: document.getElementById('list'),
     label: document.getElementById('panel-label'),
     count: document.getElementById('panel-count'),
     updated: document.getElementById('updated'),
     tournaments: document.getElementById('tournaments'),
+    overlay: document.getElementById('overlay'),
+    overlayCard: document.getElementById('overlay-card'),
+    overlayClose: document.getElementById('overlay-close'),
+    overlayRank: document.getElementById('overlay-rank'),
+    overlayName: document.getElementById('overlay-name'),
+    overlayPoints: document.getElementById('overlay-points'),
+    overlayStats: document.getElementById('overlay-stats'),
   };
 
   function fmtDate(iso){
@@ -276,6 +445,112 @@
     return d.toLocaleString('en-US', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
   }
 
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // Neu berechnen, welche Zeilen fuer die aktuelle View + Suche relevant sind.
+  // Wird nur bei Tab-Wechsel, neuen Daten oder neuer Suche aufgerufen — NICHT beim Scrollen.
+  function recomputeFiltered(){
+    const isTeams = state.view === 'teams';
+    const data = isTeams ? state.teams : state.players;
+    const q = state.query.trim().toLowerCase();
+    state.filtered = q
+      ? data.filter(row => (isTeams ? row.team_name : row.username).toLowerCase().includes(q))
+      : data;
+  }
+
+  // Rendert nur das Fenster von Zeilen, das gerade im sichtbaren Bereich liegt.
+  // Wird beim Scrollen (throttled per rAF) aufgerufen — bleibt konstant schnell,
+  // egal ob die Liste 50 oder 50.000 Eintraege hat.
+  function renderWindow(){
+    const isTeams = state.view === 'teams';
+    const data = state.filtered;
+    const total = data.length;
+
+    el.spacer.style.height = `${total * ROW_HEIGHT}px`;
+
+    const scrollTop = el.viewport.scrollTop;
+    const viewportH = el.viewport.clientHeight || 560;
+    let startIdx = Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN;
+    let endIdx = Math.ceil((scrollTop + viewportH) / ROW_HEIGHT) + OVERSCAN;
+    startIdx = Math.max(0, startIdx);
+    endIdx = Math.min(total, endIdx);
+
+    const frag = document.createDocumentFragment();
+    for(let i = startIdx; i < endIdx; i++){
+      const row = data[i];
+      const name = isTeams ? row.team_name : row.username;
+      const rank = row.rank;
+      const isTop = rank <= 3;
+      const div = document.createElement('div');
+      div.className = `row${isTop ? ' top' : ''}${i % 2 === 1 ? ' even' : ''}`;
+      div.style.top = `${i * ROW_HEIGHT}px`;
+      div.style.height = `${ROW_HEIGHT}px`;
+      div.dataset.idx = String(i);
+      div.innerHTML = `<span class="rank">${rank}</span>
+        <span class="name">${escapeHtml(name)}</span>
+        <span class="points">${row.points}</span>`;
+      frag.appendChild(div);
+    }
+    el.list.replaceChildren(frag);
+  }
+
+  function openOverlay(row, isTeams){
+    const name = isTeams ? row.team_name : row.username;
+    el.overlayRank.textContent = `#${row.rank}`;
+    el.overlayName.textContent = name;
+    el.overlayPoints.textContent = `${row.points} points`;
+
+    const stats = STAT_DEFS
+      .filter(def => {
+        if(def.playersOnly && isTeams) return false;
+        if(def.teamsOnly && !isTeams) return false;
+        const v = row[def.key];
+        return v !== undefined && v !== null && v !== '';
+      })
+      .map(def => {
+        const v = row[def.key];
+        return `<div class="stat">
+          <span class="stat-label">${escapeHtml(def.label)}</span>
+          <span class="stat-value">${escapeHtml(def.fmt(v))}</span>
+        </div>`;
+      }).join('');
+
+    el.overlayStats.innerHTML = stats || `<div class="stat"><span class="stat-value" style="color:var(--ink-soft);font-weight:500;">Keine weiteren Stats verfügbar.</span></div>`;
+    el.overlay.classList.add('open');
+  }
+
+  function closeOverlay(){
+    el.overlay.classList.remove('open');
+  }
+
+  // Klick-Delegation statt pro-Zeile-Listener: nur EIN Listener,
+  // egal wie viele Zeilen es insgesamt gibt.
+  el.list.addEventListener('click', e => {
+    const rowEl = e.target.closest('.row[data-idx]');
+    if(!rowEl) return;
+    const idx = Number(rowEl.dataset.idx);
+    const row = state.filtered[idx];
+    if(row) openOverlay(row, state.view === 'teams');
+  });
+
+  el.overlayClose.addEventListener('click', closeOverlay);
+  el.overlay.addEventListener('click', e => { if(e.target === el.overlay) closeOverlay(); });
+  document.addEventListener('keydown', e => { if(e.key === 'Escape') closeOverlay(); });
+
+  // Scroll-Handler per requestAnimationFrame throttled, damit bei
+  // schnellem Scrollen nicht mehrfach pro Frame gerendert wird.
+  let scrollScheduled = false;
+  el.viewport.addEventListener('scroll', () => {
+    if(scrollScheduled) return;
+    scrollScheduled = true;
+    requestAnimationFrame(() => {
+      renderWindow();
+      scrollScheduled = false;
+    });
+  });
+
   function render(){
     const isTeams = state.view === 'teams';
     el.btnTeams.classList.toggle('active', isTeams);
@@ -283,65 +558,31 @@
     el.label.textContent = isTeams ? 'Team Standings' : 'Player Standings';
 
     const isLoading = isTeams ? state.loadingTeams : state.loadingPlayers;
-    const data = isTeams ? state.teams : state.players;
+    const rawData = isTeams ? state.teams : state.players;
 
-    if(isLoading && data.length === 0){
+    if(isLoading && rawData.length === 0){
       el.count.textContent = '';
-      el.list.innerHTML = '<div class="empty">Lädt…</div>';
+      el.spacer.style.height = '0px';
+      el.list.innerHTML = '<div class="empty" style="position:static;">Lädt…</div>';
       return;
     }
 
-    const q = state.query.trim().toLowerCase();
-    const filtered = q
-      ? data.filter(row => (isTeams ? row.team_name : row.username).toLowerCase().includes(q))
-      : data;
+    recomputeFiltered();
 
     const total = isTeams ? state.teamsTotal : state.playersTotal;
-    el.count.textContent = (total > data.length)
-      ? `${filtered.length} of ${data.length} shown (top ${data.length} of ${total} total)`
-      : `${filtered.length} of ${data.length}`;
+    const dataLen = rawData.length;
+    el.count.textContent = (total > dataLen)
+      ? `${state.filtered.length} of ${dataLen} shown (top ${dataLen} of ${total} total)`
+      : `${state.filtered.length} of ${dataLen}`;
 
-    if(filtered.length === 0){
-      el.list.innerHTML = '<div class="empty">No matches.</div>';
+    if(state.filtered.length === 0){
+      el.spacer.style.height = '0px';
+      el.list.innerHTML = '<div class="empty" style="position:static;">No matches.</div>';
       return;
     }
 
-    // Nur ein begrenztes Fenster rendern, damit das DOM bei
-    // sehr vielen Spielern nicht einfriert
-    const visible = filtered.slice(0, state.shown);
-
-    let html = visible.map((row) => {
-      const name = isTeams ? row.team_name : row.username;
-      const rank = row.rank;
-      const isTop = rank <= 3;
-      return `<div class="row${isTop ? ' top' : ''}">
-        <span class="rank">${rank}</span>
-        <span class="name">${escapeHtml(name)}</span>
-        <span class="points">${row.points}</span>
-      </div>`;
-    }).join('');
-
-    if(filtered.length > visible.length){
-      html += `<div class="row" style="grid-template-columns:1fr;justify-items:center;">
-        <button id="load-more" style="font-family:'Inter',sans-serif;font-size:.9rem;font-weight:500;color:var(--ink);background:var(--gold-soft);border:1px solid var(--line-light);border-radius:6px;padding:8px 16px;cursor:pointer;">
-          Load more (${filtered.length - visible.length} remaining)
-        </button>
-      </div>`;
-    }
-
-    el.list.innerHTML = html;
-
-    const loadMoreBtn = document.getElementById('load-more');
-    if(loadMoreBtn){
-      loadMoreBtn.addEventListener('click', () => {
-        state.shown += PAGE_SIZE;
-        render();
-      });
-    }
-  }
-
-  function escapeHtml(s){
-    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    el.viewport.scrollTop = 0;
+    renderWindow();
   }
 
   async function loadJson(url){
@@ -391,8 +632,8 @@
     });
   }
 
-  el.btnTeams.addEventListener('click', () => { state.view = 'teams'; state.shown = PAGE_SIZE; render(); });
-  el.btnPlayers.addEventListener('click', () => { state.view = 'players'; state.shown = PAGE_SIZE; render(); });
+  el.btnTeams.addEventListener('click', () => { state.view = 'teams'; render(); });
+  el.btnPlayers.addEventListener('click', () => { state.view = 'players'; render(); });
 
   let searchDebounce;
   el.search.addEventListener('input', e => {
@@ -400,9 +641,8 @@
     const val = e.target.value;
     searchDebounce = setTimeout(() => {
       state.query = val;
-      state.shown = PAGE_SIZE;
       render();
-    }, 150);
+    }, 120);
   });
 
   init();
