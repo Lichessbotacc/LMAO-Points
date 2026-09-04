@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Findet alle vom Ziel-User erstellten Lichess-Arena-Turniere, deren Name
-"LMAO Day" oder "LMAO Night" enthaelt, und schreibt sie nach tournaments.json.
+Findet ALLE vom Ziel-User erstellten Lichess-Arena-Turniere, deren Name
+"LMAO Day" oder "LMAO Night" enthaelt (kompletter Scan, kein State),
+und schreibt sie nach tournaments.json.
 
 Nutzt den NDJSON-Streaming-Endpoint:
     GET https://lichess.org/api/user/{username}/tournament/created?nb={n}
