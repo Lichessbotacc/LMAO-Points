@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LMAO Rangliste</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --board-dark:#24312A;
+    --board-dark-2:#2C3B32;
+    --board-light:#F3ECD9;
+    --ink:#1B241C;
+    --ink-soft:#4A554C;
+    --paper:#EFE7D2;
+    --gold:#C79A3A;
+    --gold-soft:rgba(199,154,58,.18);
+    --line:rgba(255,255,255,.08);
+    --line-light:rgba(27,36,28,.12);
+  }
+
+  *{box-sizing:border-box;}
+
+  body{
+    margin:0;
+    background:var(--board-dark);
+    background-image:
+      linear-gradient(var(--board-dark-2), var(--board-dark-2)),
+      repeating-linear-gradient(45deg, rgba(255,255,255,.015) 0, rgba(255,255,255,.015) 2px, transparent 2px, transparent 40px);
+    color:var(--paper);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+  }
+
+  .wrap{
+    max-width:760px;
+    margin:0 auto;
+    padding:56px 20px 80px;
+  }
+
+  header{
+    margin-bottom:36px;
+  }
+
+  h1{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-size:clamp(2.2rem, 5vw, 3rem);
+    line-height:1.05;
+    margin:0 0 10px;
+    letter-spacing:-0.01em;
+  }
+
+  .sub{
+    font-size:1rem;
+    color:#B9C2B7;
+    margin:0;
+    max-width:52ch;
+    line-height:1.5;
+  }
+
+  .controls{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:14px;
+    margin-top:28px;
+  }
+
+  .switch{
+    display:inline-flex;
+    background:rgba(0,0,0,.22);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:3px;
+  }
+
+  .switch button{
+    font-family:'Inter',sans-serif;
+    font-size:.92rem;
+    font-weight:500;
+    color:#AEB8AC;
+    background:transparent;
+    border:none;
+    padding:8px 18px;
+    border-radius:6px;
+    cursor:pointer;
+    transition:background .15s ease, color .15s ease;
+  }
+
+  .switch button.active{
+    background:var(--paper);
+    color:var(--ink);
+  }
+
+  .search{
+    flex:1;
+    min-width:180px;
+  }
+
+  .search input{
+    width:100%;
+    background:rgba(0,0,0,.22);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:9px 14px;
+    color:var(--paper);
+    font-family:'Inter',sans-serif;
+    font-size:.92rem;
+  }
+
+  .search input::placeholder{ color:#7E897C; }
+  .search input:focus{ outline:1px solid var(--gold); outline-offset:0; }
+
+  .panel{
+    margin-top:28px;
+    background:var(--paper);
+    border-radius:10px;
+    overflow:hidden;
+    color:var(--ink);
+  }
+
+  .panel-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    padding:16px 20px;
+    border-bottom:1px solid var(--line-light);
+  }
+
+  .panel-head .label{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-size:1.15rem;
+  }
+
+  .panel-head .count{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:.82rem;
+    color:var(--ink-soft);
+  }
+
+  .row{
+    display:grid;
+    grid-template-columns:44px 1fr auto;
+    align-items:center;
+    gap:14px;
+    padding:12px 20px;
+    border-bottom:1px solid var(--line-light);
+  }
+
+  .row:last-child{ border-bottom:none; }
+
+  .row:nth-child(even){ background:rgba(36,49,42,.045); }
+
+  .row.top{ background:var(--gold-soft); }
+
+  .rank{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:.95rem;
+    color:var(--ink-soft);
+  }
+
+  .row.top .rank{ color:var(--gold); font-weight:600; }
+
+  .name{
+    font-size:.98rem;
+    font-weight:500;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+
+  .points{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:.98rem;
+    font-weight:600;
+    text-align:right;
+    white-space:nowrap;
+  }
+
+  .empty{
+    padding:40px 20px;
+    text-align:center;
+    color:var(--ink-soft);
+    font-size:.92rem;
+  }
+
+  footer{
+    margin-top:26px;
+    display:flex;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:8px;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:.78rem;
+    color:#8A9488;
+  }
+
+  footer a{ color:#B9C2B7; }
+
+  @media (max-width:480px){
+    .row{ grid-template-columns:34px 1fr auto; gap:10px; padding:11px 16px; }
+    .panel-head{ padding:14px 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>LMAO Rangliste</h1>
+    <p class="sub">Alle LMAO Day und LMAO Night Turniere zusammengerechnet, Punkte über sämtliche Ausgaben aufsummiert.</p>
+    <div class="controls">
+      <div class="switch">
+        <button id="btn-teams" class="active">Teams</button>
+        <button id="btn-players">Spieler</button>
+      </div>
+      <div class="search">
+        <input id="search" type="text" placeholder="Suchen...">
+      </div>
+    </div>
+  </header>
+
+  <div class="panel">
+    <div class="panel-head">
+      <span class="label" id="panel-label">Team-Rangliste</span>
+      <span class="count" id="panel-count"></span>
+    </div>
+    <div id="list"></div>
+  </div>
+
+  <footer>
+    <span id="updated">Lade Daten...</span>
+    <span id="tournaments"></span>
+  </footer>
+</div>
+
+<script>
+  const DATA_URL = {
+    teams: 'data/leaderboard_teams.json',
+    players: 'data/leaderboard_players.json',
+    meta: 'data/meta.json',
+  };
+
+  const state = { view: 'teams', teams: [], players: [], query: '' };
+
+  const el = {
+    btnTeams: document.getElementById('btn-teams'),
+    btnPlayers: document.getElementById('btn-players'),
+    search: document.getElementById('search'),
+    list: document.getElementById('list'),
+    label: document.getElementById('panel-label'),
+    count: document.getElementById('panel-count'),
+    updated: document.getElementById('updated'),
+    tournaments: document.getElementById('tournaments'),
+  };
+
+  function fmtDate(iso){
+    if(!iso) return '';
+    const d = new Date(iso);
+    if(isNaN(d)) return iso;
+    return d.toLocaleString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+  }
+
+  function render(){
+    const isTeams = state.view === 'teams';
+    el.btnTeams.classList.toggle('active', isTeams);
+    el.btnPlayers.classList.toggle('active', !isTeams);
+    el.label.textContent = isTeams ? 'Team-Rangliste' : 'Einzelspieler-Rangliste';
+
+    const data = isTeams ? state.teams : state.players;
+    const q = state.query.trim().toLowerCase();
+    const filtered = q
+      ? data.filter(row => (isTeams ? row.team_name : row.username).toLowerCase().includes(q))
+      : data;
+
+    el.count.textContent = `${filtered.length} von ${data.length}`;
+
+    if(filtered.length === 0){
+      el.list.innerHTML = '<div class="empty">Keine Treffer.</div>';
+      return;
+    }
+
+    el.list.innerHTML = filtered.map((row, i) => {
+      const name = isTeams ? row.team_name : row.username;
+      const rank = isTeams ? row.rank : row.rank;
+      const isTop = rank <= 3;
+      return `<div class="row${isTop ? ' top' : ''}">
+        <span class="rank">${rank}</span>
+        <span class="name">${escapeHtml(name)}</span>
+        <span class="points">${row.points}</span>
+      </div>`;
+    }).join('');
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  async function loadJson(url){
+    try{
+      const res = await fetch(url, { cache: 'no-store' });
+      if(!res.ok) return [];
+      return await res.json();
+    }catch(e){
+      return [];
+    }
+  }
+
+  async function init(){
+    const [teams, players, meta] = await Promise.all([
+      loadJson(DATA_URL.teams),
+      loadJson(DATA_URL.players),
+      loadJson(DATA_URL.meta),
+    ]);
+
+    state.teams = Array.isArray(teams) ? teams : [];
+    state.players = Array.isArray(players) ? players : [];
+
+    if(meta && meta.generated_at){
+      el.updated.textContent = `Zuletzt aktualisiert: ${fmtDate(meta.generated_at)}`;
+    }else{
+      el.updated.textContent = 'Zuletzt aktualisiert: unbekannt';
+    }
+    if(meta && typeof meta.tournaments_processed === 'number'){
+      el.tournaments.textContent = `${meta.tournaments_processed} Turniere ausgewertet`;
+    }
+
+    render();
+  }
+
+  el.btnTeams.addEventListener('click', () => { state.view = 'teams'; render(); });
+  el.btnPlayers.addEventListener('click', () => { state.view = 'players'; render(); });
+  el.search.addEventListener('input', e => { state.query = e.target.value; render(); });
+
+  init();
+</script>
+</body>
+</html>
