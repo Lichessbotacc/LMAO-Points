@@ -334,7 +334,7 @@
 <div class="wrap">
   <header>
     <h1>LMAO Standings</h1>
-    <p class="sub">All LMAO Day and LMAO Night tournaments combined, points summed across every edition. Klicke auf eine Zeile für mehr Stats.</p>
+    <p class="sub">All LMAO Day and LMAO Night tournaments combined, points summed across every edition. Click a row for more stats.</p>
     <div class="controls">
       <div class="switch">
         <button id="btn-teams" class="active">Teams</button>
@@ -383,8 +383,8 @@
     meta: 'data/meta.json',
   };
 
-  const ROW_HEIGHT = 49;   // px, muss zur CSS-Zeilenhoehe passen
-  const OVERSCAN = 8;      // zusaetzliche Zeilen ausserhalb des Viewports gerendert
+  const ROW_HEIGHT = 49;   // px, must match the CSS row height
+  const OVERSCAN = 8;      // extra rows rendered outside the viewport
 
   const state = {
     view: 'teams',
@@ -395,26 +395,26 @@
     query: '',
     loadingTeams: false,
     loadingPlayers: false,
-    filtered: [],       // aktuell gefilterte+sortierte Liste fuer die aktive View
+    filtered: [],       // currently filtered+sorted list for the active view
   };
 
-  // Zusatz-Statistiken, die aggregate.py aus den Turnier-Einzelergebnissen
-  // berechnet. Alle Felder sind optional — fehlt eines (z.B. weil ein
-  // Team-Battle keine Ranks liefert), wird die Kachel einfach weggelassen.
+  // Extra stats computed by aggregate.py from the individual tournament
+  // results. All fields are optional — if one is missing (e.g. because a
+  // team battle doesn't report ranks), the tile is simply skipped.
   const STAT_DEFS = [
-    { key: 'tournaments_played',      label: 'Turniere',         fmt: v => `${v}` },
-    { key: 'best_tournament',         label: 'Bestes Turnier',   fmt: v => `${v}` },
-    { key: 'best_tournament_score',   label: 'Score dort',       fmt: v => `${v}` },
-    { key: 'best_finish',             label: 'Beste Platzierung',fmt: v => `#${v}` },
-    { key: 'worst_finish',            label: 'Schlechteste Platz.', fmt: v => `#${v}` },
-    { key: 'avg_finish',              label: 'Ø Platzierung',    fmt: v => `#${v}` },
-    { key: 'avg_points',              label: 'Ø Punkte',         fmt: v => `${v}` },
-    { key: 'highest_points',          label: 'Höchster Score',   fmt: v => `${v}` },
-    { key: 'podiums',                 label: 'Podestplätze',     fmt: v => `${v}` },
-    { key: 'first_places',            label: 'Siege',            fmt: v => `${v}` },
-    { key: 'top3_rate',               label: 'Top-3-Quote',      fmt: v => `${(v * 100).toFixed(1)}%` },
-    { key: 'active_since',            label: 'Aktiv seit',       fmt: v => fmtDate(v) || `${v}` },
-    { key: 'last_played',             label: 'Zuletzt gespielt', fmt: v => fmtDate(v) || `${v}` },
+    { key: 'tournaments_played',      label: 'Tournaments',      fmt: v => `${v}` },
+    { key: 'best_tournament',         label: 'Best tournament',  fmt: v => `${v}` },
+    { key: 'best_tournament_score',   label: 'Score there',      fmt: v => `${v}` },
+    { key: 'best_finish',             label: 'Best finish',      fmt: v => `#${v}` },
+    { key: 'worst_finish',            label: 'Worst finish',     fmt: v => `#${v}` },
+    { key: 'avg_finish',              label: 'Avg. finish',      fmt: v => `#${v}` },
+    { key: 'avg_points',              label: 'Avg. points',      fmt: v => `${v}` },
+    { key: 'highest_points',          label: 'Highest score',    fmt: v => `${v}` },
+    { key: 'podiums',                 label: 'Podiums',          fmt: v => `${v}` },
+    { key: 'first_places',            label: 'Wins',             fmt: v => `${v}` },
+    { key: 'top3_rate',               label: 'Top-3 rate',       fmt: v => `${(v * 100).toFixed(1)}%` },
+    { key: 'active_since',            label: 'Active since',     fmt: v => fmtDate(v) || `${v}` },
+    { key: 'last_played',             label: 'Last played',      fmt: v => fmtDate(v) || `${v}` },
     { key: 'team_name',               label: 'Team',             fmt: v => `${v}`, playersOnly:true },
   ];
 
@@ -449,8 +449,8 @@
     return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
 
-  // Neu berechnen, welche Zeilen fuer die aktuelle View + Suche relevant sind.
-  // Wird nur bei Tab-Wechsel, neuen Daten oder neuer Suche aufgerufen — NICHT beim Scrollen.
+  // Recompute which rows are relevant for the current view + search.
+  // Only called on tab change, new data, or new search — NOT on scroll.
   function recomputeFiltered(){
     const isTeams = state.view === 'teams';
     const data = isTeams ? state.teams : state.players;
@@ -460,9 +460,9 @@
       : data;
   }
 
-  // Rendert nur das Fenster von Zeilen, das gerade im sichtbaren Bereich liegt.
-  // Wird beim Scrollen (throttled per rAF) aufgerufen — bleibt konstant schnell,
-  // egal ob die Liste 50 oder 50.000 Eintraege hat.
+  // Renders only the window of rows currently within the visible area.
+  // Called on scroll (throttled via rAF) — stays equally fast whether
+  // the list has 50 or 50,000 entries.
   function renderWindow(){
     const isTeams = state.view === 'teams';
     const data = state.filtered;
@@ -517,7 +517,7 @@
         </div>`;
       }).join('');
 
-    el.overlayStats.innerHTML = stats || `<div class="stat"><span class="stat-value" style="color:var(--ink-soft);font-weight:500;">Keine weiteren Stats verfügbar.</span></div>`;
+    el.overlayStats.innerHTML = stats || `<div class="stat"><span class="stat-value" style="color:var(--ink-soft);font-weight:500;">No further stats available.</span></div>`;
     el.overlay.classList.add('open');
   }
 
@@ -525,8 +525,8 @@
     el.overlay.classList.remove('open');
   }
 
-  // Klick-Delegation statt pro-Zeile-Listener: nur EIN Listener,
-  // egal wie viele Zeilen es insgesamt gibt.
+  // Click delegation instead of a per-row listener: only ONE listener,
+  // no matter how many rows there are in total.
   el.list.addEventListener('click', e => {
     const rowEl = e.target.closest('.row[data-idx]');
     if(!rowEl) return;
@@ -539,8 +539,8 @@
   el.overlay.addEventListener('click', e => { if(e.target === el.overlay) closeOverlay(); });
   document.addEventListener('keydown', e => { if(e.key === 'Escape') closeOverlay(); });
 
-  // Scroll-Handler per requestAnimationFrame throttled, damit bei
-  // schnellem Scrollen nicht mehrfach pro Frame gerendert wird.
+  // Scroll handler throttled via requestAnimationFrame so fast scrolling
+  // doesn't trigger multiple renders per frame.
   let scrollScheduled = false;
   el.viewport.addEventListener('scroll', () => {
     if(scrollScheduled) return;
@@ -563,7 +563,7 @@
     if(isLoading && rawData.length === 0){
       el.count.textContent = '';
       el.spacer.style.height = '0px';
-      el.list.innerHTML = '<div class="empty" style="position:static;">Lädt…</div>';
+      el.list.innerHTML = '<div class="empty" style="position:static;">Loading…</div>';
       return;
     }
 
@@ -596,7 +596,7 @@
   }
 
   function init(){
-    // Meta ist klein → separat und sofort laden, blockiert nichts anderes
+    // Meta is small → loaded separately and immediately, doesn't block anything else
     loadJson(DATA_URL.meta).then(meta => {
       if(meta && meta.generated_at){
         el.updated.textContent = `Last updated: ${fmtDate(meta.generated_at)}`;
@@ -611,8 +611,8 @@
       render();
     });
 
-    // Teams unabhängig von Players laden, damit ein langsamer/großer
-    // Players-Request nicht die komplette Seite blockiert
+    // Load teams independently of players so a slow/large players
+    // request doesn't block the whole page
     state.loadingTeams = true;
     render();
     loadJson(DATA_URL.teams).then(teams => {
@@ -622,7 +622,7 @@
       render();
     });
 
-    // Players separat und parallel laden
+    // Load players separately and in parallel
     state.loadingPlayers = true;
     loadJson(DATA_URL.players).then(players => {
       state.players = Array.isArray(players) ? players : [];
