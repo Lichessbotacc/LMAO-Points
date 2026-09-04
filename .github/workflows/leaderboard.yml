@@ -16,8 +16,8 @@ on:
         default: "1.0"
         required: false
   schedule:
-    # jeden Montag 03:00 UTC automatisch neu berechnen
-    - cron: "0 3 * * 1"
+    # jeden Tag 03:00 UTC automatisch neu berechnen
+    - cron: "0 3 * * *"
 
 permissions:
   contents: write
@@ -45,7 +45,7 @@ jobs:
         env:
           LICHESS_USER: ${{ env.LICHESS_USER }}
           LICHESS_TOKEN: ${{ secrets.LICHESS_TOKEN }}
-        run: python scripts/discover.py
+        run: python discover.py
 
       - uses: actions/upload-artifact@v4
         with:
@@ -81,7 +81,7 @@ jobs:
           LICHESS_TOKEN: ${{ secrets.LICHESS_TOKEN }}
           CHUNK_INDEX: ${{ matrix.chunk }}
           REQUEST_DELAY: ${{ env.REQUEST_DELAY }}
-        run: python scripts/fetch_worker.py
+        run: python fetch_worker.py
 
       - uses: actions/upload-artifact@v4
         with:
@@ -104,24 +104,22 @@ jobs:
           path: artifacts
           merge-multiple: true
 
-      - name: Gesamtrangliste erstellen
-        run: python scripts/aggregate.py
+      - name: Gesamtrangliste erstellen (docs/data)
+        run: python aggregate.py
 
       - uses: actions/upload-artifact@v4
         with:
           name: leaderboard
           path: |
-            LEADERBOARD.md
-            leaderboard_players.json
-            leaderboard_teams.json
+            docs/data/leaderboard_players.json
+            docs/data/leaderboard_teams.json
+            docs/data/meta.json
             errors.json
 
-      - name: Ergebnisse ins Repo committen
+      - name: Daten ins Repo committen (loest GitHub Pages Deploy aus)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          mkdir -p results
-          cp LEADERBOARD.md leaderboard_players.json leaderboard_teams.json errors.json results/
-          git add results/
+          git add docs/data
           git diff --staged --quiet || git commit -m "Rangliste aktualisiert: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           git push
