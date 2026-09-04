@@ -244,6 +244,8 @@
     meta: 'data/meta.json',
   };
 
+  const PAGE_SIZE = 100;
+
   const state = {
     view: 'teams',
     teams: [],
@@ -253,6 +255,7 @@
     query: '',
     loadingTeams: false,
     loadingPlayers: false,
+    shown: PAGE_SIZE,
   };
 
   const el = {
@@ -303,7 +306,11 @@
       return;
     }
 
-    el.list.innerHTML = filtered.map((row) => {
+    // Nur ein begrenztes Fenster rendern, damit das DOM bei
+    // sehr vielen Spielern nicht einfriert
+    const visible = filtered.slice(0, state.shown);
+
+    let html = visible.map((row) => {
       const name = isTeams ? row.team_name : row.username;
       const rank = row.rank;
       const isTop = rank <= 3;
@@ -313,6 +320,24 @@
         <span class="points">${row.points}</span>
       </div>`;
     }).join('');
+
+    if(filtered.length > visible.length){
+      html += `<div class="row" style="grid-template-columns:1fr;justify-items:center;">
+        <button id="load-more" style="font-family:'Inter',sans-serif;font-size:.9rem;font-weight:500;color:var(--ink);background:var(--gold-soft);border:1px solid var(--line-light);border-radius:6px;padding:8px 16px;cursor:pointer;">
+          Load more (${filtered.length - visible.length} remaining)
+        </button>
+      </div>`;
+    }
+
+    el.list.innerHTML = html;
+
+    const loadMoreBtn = document.getElementById('load-more');
+    if(loadMoreBtn){
+      loadMoreBtn.addEventListener('click', () => {
+        state.shown += PAGE_SIZE;
+        render();
+      });
+    }
   }
 
   function escapeHtml(s){
@@ -366,9 +391,19 @@
     });
   }
 
-  el.btnTeams.addEventListener('click', () => { state.view = 'teams'; render(); });
-  el.btnPlayers.addEventListener('click', () => { state.view = 'players'; render(); });
-  el.search.addEventListener('input', e => { state.query = e.target.value; render(); });
+  el.btnTeams.addEventListener('click', () => { state.view = 'teams'; state.shown = PAGE_SIZE; render(); });
+  el.btnPlayers.addEventListener('click', () => { state.view = 'players'; state.shown = PAGE_SIZE; render(); });
+
+  let searchDebounce;
+  el.search.addEventListener('input', e => {
+    clearTimeout(searchDebounce);
+    const val = e.target.value;
+    searchDebounce = setTimeout(() => {
+      state.query = val;
+      state.shown = PAGE_SIZE;
+      render();
+    }, 150);
+  });
 
   init();
 </script>
