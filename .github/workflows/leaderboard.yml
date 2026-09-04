@@ -45,7 +45,7 @@ jobs:
         env:
           LICHESS_USER: ${{ env.LICHESS_USER }}
           LICHESS_TOKEN: ${{ secrets.LICHESS_TOKEN }}
-        run: python discover.py
+        run: python scripts/discover.py
 
       - uses: actions/upload-artifact@v4
         with:
@@ -81,7 +81,7 @@ jobs:
           LICHESS_TOKEN: ${{ secrets.LICHESS_TOKEN }}
           CHUNK_INDEX: ${{ matrix.chunk }}
           REQUEST_DELAY: ${{ env.REQUEST_DELAY }}
-        run: python fetch_worker.py
+        run: python scripts/fetch_worker.py
 
       - uses: actions/upload-artifact@v4
         with:
@@ -105,7 +105,7 @@ jobs:
           merge-multiple: true
 
       - name: Gesamtrangliste erstellen (docs/data)
-        run: python aggregate.py
+        run: python scripts/aggregate.py
 
       - uses: actions/upload-artifact@v4
         with:
@@ -120,6 +120,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin "${GITHUB_REF_NAME}" || true
           git add docs/data
           git diff --staged --quiet || git commit -m "Rangliste aktualisiert: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           git push
