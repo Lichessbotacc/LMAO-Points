@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LMAO Rangliste</title>
+<title>LMAO Standings</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -210,29 +210,29 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>LMAO Rangliste</h1>
-    <p class="sub">Alle LMAO Day und LMAO Night Turniere zusammengerechnet, Punkte über sämtliche Ausgaben aufsummiert.</p>
+    <h1>LMAO Standings</h1>
+    <p class="sub">All LMAO Day and LMAO Night tournaments combined, points summed across every edition.</p>
     <div class="controls">
       <div class="switch">
         <button id="btn-teams" class="active">Teams</button>
-        <button id="btn-players">Spieler</button>
+        <button id="btn-players">Players</button>
       </div>
       <div class="search">
-        <input id="search" type="text" placeholder="Suchen...">
+        <input id="search" type="text" placeholder="Search...">
       </div>
     </div>
   </header>
 
   <div class="panel">
     <div class="panel-head">
-      <span class="label" id="panel-label">Team-Rangliste</span>
+      <span class="label" id="panel-label">Team Standings</span>
       <span class="count" id="panel-count"></span>
     </div>
     <div id="list"></div>
   </div>
 
   <footer>
-    <span id="updated">Lade Daten...</span>
+    <span id="updated">Loading...</span>
     <span id="tournaments"></span>
   </footer>
 </div>
@@ -244,7 +244,7 @@
     meta: 'data/meta.json',
   };
 
-  const state = { view: 'teams', teams: [], players: [], query: '' };
+  const state = { view: 'teams', teams: [], players: [], teamsTotal: 0, playersTotal: 0, query: '' };
 
   const el = {
     btnTeams: document.getElementById('btn-teams'),
@@ -261,14 +261,14 @@
     if(!iso) return '';
     const d = new Date(iso);
     if(isNaN(d)) return iso;
-    return d.toLocaleString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    return d.toLocaleString('en-US', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
   }
 
   function render(){
     const isTeams = state.view === 'teams';
     el.btnTeams.classList.toggle('active', isTeams);
     el.btnPlayers.classList.toggle('active', !isTeams);
-    el.label.textContent = isTeams ? 'Team-Rangliste' : 'Einzelspieler-Rangliste';
+    el.label.textContent = isTeams ? 'Team Standings' : 'Player Standings';
 
     const data = isTeams ? state.teams : state.players;
     const q = state.query.trim().toLowerCase();
@@ -276,10 +276,13 @@
       ? data.filter(row => (isTeams ? row.team_name : row.username).toLowerCase().includes(q))
       : data;
 
-    el.count.textContent = `${filtered.length} von ${data.length}`;
+    const total = isTeams ? state.teamsTotal : state.playersTotal;
+    el.count.textContent = (!isTeams && total > data.length)
+      ? `${filtered.length} of ${data.length} shown (top ${data.length} of ${total} total)`
+      : `${filtered.length} of ${data.length}`;
 
     if(filtered.length === 0){
-      el.list.innerHTML = '<div class="empty">Keine Treffer.</div>';
+      el.list.innerHTML = '<div class="empty">No matches.</div>';
       return;
     }
 
@@ -318,14 +321,16 @@
 
     state.teams = Array.isArray(teams) ? teams : [];
     state.players = Array.isArray(players) ? players : [];
+    state.teamsTotal = (meta && typeof meta.teams_count === 'number') ? meta.teams_count : state.teams.length;
+    state.playersTotal = (meta && typeof meta.players_count === 'number') ? meta.players_count : state.players.length;
 
     if(meta && meta.generated_at){
-      el.updated.textContent = `Zuletzt aktualisiert: ${fmtDate(meta.generated_at)}`;
+      el.updated.textContent = `Last updated: ${fmtDate(meta.generated_at)}`;
     }else{
-      el.updated.textContent = 'Zuletzt aktualisiert: unbekannt';
+      el.updated.textContent = 'Last updated: unknown';
     }
     if(meta && typeof meta.tournaments_processed === 'number'){
-      el.tournaments.textContent = `${meta.tournaments_processed} Turniere ausgewertet`;
+      el.tournaments.textContent = `${meta.tournaments_processed} tournaments processed`;
     }
 
     render();
