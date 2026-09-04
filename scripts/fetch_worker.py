@@ -4,10 +4,12 @@ Ein einzelner Worker. Bekommt per CHUNK_INDEX/NUM_WORKERS einen Ausschnitt
 der Turnierliste zugewiesen (round-robin verteilt, damit lange und kurze
 Turniere sich ueber die Worker hinweg ausgleichen), ruft fuer jedes Turnier
 
-  - GET /api/tournament/{id}/results       (individuelle Spielerpunkte)
-  - GET /api/tournament/{id}/teams         (Team-Punkte, nur bei Team-Battles)
+  - GET /api/tournament/{id}/results       (individuelle Spielerpunkte + rank)
+  - GET /api/tournament/{id}/teams         (Team-Punkte + rank, nur bei Team-Battles)
 
-ab und schreibt die aufsummierten Zwischenergebnisse nach partial_{CHUNK_INDEX}.json
+ab und schreibt die aufsummierten Zwischenergebnisse UND die Einzelergebnisse
+pro Turnier nach partial_{CHUNK_INDEX}.json (letzteres wird fuer erweiterte
+Stats wie Best Tournament, Best Finish, Streaks etc. gebraucht).
 
 Umgebungsvariablen:
     LICHESS_TOKEN    - optionales Personal Access Token
@@ -70,11 +72,14 @@ def get_with_retry(url, **kwargs):
     raise RuntimeError(f"Aufgegeben nach {MAX_RETRIES} Versuchen: {url}")
 
 
-def fetch_results(tid: str, player_points: dict) -> None:
+def fetch_results(t: dict, player_points: dict, player_records: dict) -> None:
+    tid = t["id"]
     url = f"https://lichess.org/api/tournament/{tid}/results"
     r = get_with_retry(url, params={"sheet": "false"}, stream=True)
     if r.status_code != 200:
         raise RuntimeError(f"results status={r.status_code}")
+
+    nb_players = t.get("nbPlayers")
 
     for raw_line in r.iter_lines(decode_unicode=True):
         if not raw_line:
@@ -82,11 +87,26 @@ def fetch_results(tid: str, player_points: dict) -> None:
         row = json.loads(raw_line)
         uname = row.get("username") or row.get("name")
         score = row.get("score", 0)
-        if uname:
-            player_points[uname] = player_points.get(uname, 0) + score
+        rank = row.get("rank")
+        if not uname:
+            continue
+
+        player_points[uname] = player_points.get(uname, 0) + score
+
+        player_records.setdefault(uname, []).append(
+            {
+                "id": tid,
+                "name": t.get("fullName"),
+                "startsAt": t.get("startsAt"),
+                "score": score,
+                "rank": rank,
+                "nbPlayers": nb_players,
+            }
+        )
 
 
-def fetch_teams(tid: str, team_points: dict, team_names: dict) -> None:
+def fetch_teams(t: dict, team_points: dict, team_names: dict, team_records: dict) -> None:
+    tid = t["id"]
     url = f"https://lichess.org/api/tournament/{tid}/teams"
     r = get_with_retry(url)
     if r.status_code == 404:
@@ -95,13 +115,27 @@ def fetch_teams(tid: str, team_points: dict, team_names: dict) -> None:
         raise RuntimeError(f"teams status={r.status_code}")
 
     data = r.json()
-    for team in data.get("teams", []):
+    teams = data.get("teams", [])
+    # Lichess liefert die Teams eines Team-Battles bereits nach Score
+    # sortiert zurueck -> Position in der Liste = Rang im Turnier.
+    for idx, team in enumerate(teams):
         team_id = team.get("id")
         score = team.get("score", 0)
         if not team_id:
             continue
         team_points[team_id] = team_points.get(team_id, 0) + score
         team_names.setdefault(team_id, team.get("name", team_id))
+
+        team_records.setdefault(team_id, []).append(
+            {
+                "id": tid,
+                "name": t.get("fullName"),
+                "startsAt": t.get("startsAt"),
+                "score": score,
+                "rank": idx + 1,
+                "nbTeams": len(teams),
+            }
+        )
 
 
 def main() -> int:
@@ -116,21 +150,23 @@ def main() -> int:
     )
 
     player_points: dict = {}
+    player_records: dict = {}
     team_points: dict = {}
     team_names: dict = {}
+    team_records: dict = {}
     errors = []
     processed = 0
 
     for t in my_tournaments:
         tid = t["id"]
         try:
-            fetch_results(tid, player_points)
+            fetch_results(t, player_points, player_records)
         except Exception as e:
             errors.append({"id": tid, "name": t.get("fullName"), "stage": "results", "error": str(e)})
         time.sleep(REQUEST_DELAY)
 
         try:
-            fetch_teams(tid, team_points, team_names)
+            fetch_teams(t, team_points, team_names, team_records)
         except Exception as e:
             errors.append({"id": tid, "name": t.get("fullName"), "stage": "teams", "error": str(e)})
         time.sleep(REQUEST_DELAY)
@@ -143,8 +179,10 @@ def main() -> int:
         "worker": CHUNK_INDEX,
         "processed": processed,
         "player_points": player_points,
+        "player_records": player_records,
         "team_points": team_points,
         "team_names": team_names,
+        "team_records": team_records,
         "errors": errors,
     }
 
