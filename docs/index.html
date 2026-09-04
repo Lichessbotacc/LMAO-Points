@@ -244,7 +244,16 @@
     meta: 'data/meta.json',
   };
 
-  const state = { view: 'teams', teams: [], players: [], teamsTotal: 0, playersTotal: 0, query: '' };
+  const state = {
+    view: 'teams',
+    teams: [],
+    players: [],
+    teamsTotal: 0,
+    playersTotal: 0,
+    query: '',
+    loadingTeams: false,
+    loadingPlayers: false,
+  };
 
   const el = {
     btnTeams: document.getElementById('btn-teams'),
@@ -270,14 +279,22 @@
     el.btnPlayers.classList.toggle('active', !isTeams);
     el.label.textContent = isTeams ? 'Team Standings' : 'Player Standings';
 
+    const isLoading = isTeams ? state.loadingTeams : state.loadingPlayers;
     const data = isTeams ? state.teams : state.players;
+
+    if(isLoading && data.length === 0){
+      el.count.textContent = '';
+      el.list.innerHTML = '<div class="empty">Lädt…</div>';
+      return;
+    }
+
     const q = state.query.trim().toLowerCase();
     const filtered = q
       ? data.filter(row => (isTeams ? row.team_name : row.username).toLowerCase().includes(q))
       : data;
 
     const total = isTeams ? state.teamsTotal : state.playersTotal;
-    el.count.textContent = (!isTeams && total > data.length)
+    el.count.textContent = (total > data.length)
       ? `${filtered.length} of ${data.length} shown (top ${data.length} of ${total} total)`
       : `${filtered.length} of ${data.length}`;
 
@@ -286,9 +303,9 @@
       return;
     }
 
-    el.list.innerHTML = filtered.map((row, i) => {
+    el.list.innerHTML = filtered.map((row) => {
       const name = isTeams ? row.team_name : row.username;
-      const rank = isTeams ? row.rank : row.rank;
+      const rank = row.rank;
       const isTop = rank <= 3;
       return `<div class="row${isTop ? ' top' : ''}">
         <span class="rank">${rank}</span>
@@ -312,28 +329,41 @@
     }
   }
 
-  async function init(){
-    const [teams, players, meta] = await Promise.all([
-      loadJson(DATA_URL.teams),
-      loadJson(DATA_URL.players),
-      loadJson(DATA_URL.meta),
-    ]);
+  function init(){
+    // Meta ist klein → separat und sofort laden, blockiert nichts anderes
+    loadJson(DATA_URL.meta).then(meta => {
+      if(meta && meta.generated_at){
+        el.updated.textContent = `Last updated: ${fmtDate(meta.generated_at)}`;
+      }else{
+        el.updated.textContent = 'Last updated: unknown';
+      }
+      if(meta && typeof meta.tournaments_processed === 'number'){
+        el.tournaments.textContent = `${meta.tournaments_processed} tournaments processed`;
+      }
+      if(meta && typeof meta.teams_count === 'number') state.teamsTotal = meta.teams_count;
+      if(meta && typeof meta.players_count === 'number') state.playersTotal = meta.players_count;
+      render();
+    });
 
-    state.teams = Array.isArray(teams) ? teams : [];
-    state.players = Array.isArray(players) ? players : [];
-    state.teamsTotal = (meta && typeof meta.teams_count === 'number') ? meta.teams_count : state.teams.length;
-    state.playersTotal = (meta && typeof meta.players_count === 'number') ? meta.players_count : state.players.length;
-
-    if(meta && meta.generated_at){
-      el.updated.textContent = `Last updated: ${fmtDate(meta.generated_at)}`;
-    }else{
-      el.updated.textContent = 'Last updated: unknown';
-    }
-    if(meta && typeof meta.tournaments_processed === 'number'){
-      el.tournaments.textContent = `${meta.tournaments_processed} tournaments processed`;
-    }
-
+    // Teams unabhängig von Players laden, damit ein langsamer/großer
+    // Players-Request nicht die komplette Seite blockiert
+    state.loadingTeams = true;
     render();
+    loadJson(DATA_URL.teams).then(teams => {
+      state.teams = Array.isArray(teams) ? teams : [];
+      if(!state.teamsTotal) state.teamsTotal = state.teams.length;
+      state.loadingTeams = false;
+      render();
+    });
+
+    // Players separat und parallel laden
+    state.loadingPlayers = true;
+    loadJson(DATA_URL.players).then(players => {
+      state.players = Array.isArray(players) ? players : [];
+      if(!state.playersTotal) state.playersTotal = state.players.length;
+      state.loadingPlayers = false;
+      render();
+    });
   }
 
   el.btnTeams.addEventListener('click', () => { state.view = 'teams'; render(); });
