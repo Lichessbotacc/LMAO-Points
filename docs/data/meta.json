@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-11-23T12:25:55.231716+00:00",
+  "generated_at": "2026-11-23T14:26:55.815045+00:00",
   "tournaments_processed": 881,
   "teams_count": 290,
-  "players_count": 36057,
-  "errors_count": 3
+  "players_count": 36031,
+  "errors_count": 6
 }
